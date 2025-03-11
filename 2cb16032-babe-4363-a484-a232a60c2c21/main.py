@@ -183,12 +183,12 @@ class TradingStrategy(Strategy):
                 continue
                 
             # Calculate momentum score
-            momentum_scores[ticker] = self.calculate_momentum_score(ticker, ohlcv_data)
+            momentum_scores[ticker] = float(self.calculate_momentum_score(ticker, ohlcv_data))
             
             # Calculate volatility for weighting
             closes = [bar[ticker]["close"] for bar in ohlcv_data[-self.volatility_lookback:] if ticker in bar]
             daily_returns = [closes[i]/closes[i-1] - 1 for i in range(1, len(closes))]
-            volatilities[ticker] = np.std(daily_returns) if daily_returns else 1.0
+            volatilities[ticker] = float(np.std(daily_returns) if daily_returns else 1.0)
             
             # Avoid division by zero
             if volatilities[ticker] == 0:
@@ -211,11 +211,11 @@ class TradingStrategy(Strategy):
             # Apply momentum score adjustment
             if momentum_scores[ticker] < 0:
                 # Reduce exposure for negative momentum
-                reduction = min(0.5, abs(momentum_scores[ticker]) * 0.5)  # Scale reduction, max 50%
-                raw_weights[ticker] = (1 / volatilities[ticker]) * (1 - reduction)
+                reduction = float(min(0.5, abs(momentum_scores[ticker]) * 0.5))  # Scale reduction, max 50%
+                raw_weights[ticker] = float((1 / volatilities[ticker]) * (1 - reduction))
                 log(f"{ticker} - Negative momentum, reducing weight by {reduction:.2%}")
             else:
-                raw_weights[ticker] = (1 / volatilities[ticker]) * (1 + momentum_scores[ticker])
+                raw_weights[ticker] = float((1 / volatilities[ticker]) * (1 + momentum_scores[ticker]))
                 total_positive_momentum += momentum_scores[ticker]
                 
         # Profit taking logic for TSLA and NVDA
@@ -251,20 +251,20 @@ class TradingStrategy(Strategy):
         
         if total_weight > 0:
             for ticker in self.tickers:
-                normalized_weights[ticker] = raw_weights[ticker] / total_weight
+                normalized_weights[ticker] = float(raw_weights[ticker] / total_weight)
         else:
             # Equal weight fallback if all weights are zero
             for ticker in self.tickers:
-                normalized_weights[ticker] = 1.0 / len(self.tickers)
+                normalized_weights[ticker] = float(1.0 / len(self.tickers))
         
         # Smooth transition from previous weights (if available)
         final_weights = {}
         for ticker in self.tickers:
             if ticker in self.previous_weights:
                 # Blend new and old weights (70% new, 30% old)
-                final_weights[ticker] = 0.7 * normalized_weights[ticker] + 0.3 * self.previous_weights.get(ticker, 0)
+                final_weights[ticker] = float(0.7 * normalized_weights[ticker] + 0.3 * self.previous_weights.get(ticker, 0))
             else:
-                final_weights[ticker] = normalized_weights[ticker]
+                final_weights[ticker] = float(normalized_weights[ticker])
         
         # Store for next run
         self.previous_weights = final_weights.copy()
@@ -273,5 +273,8 @@ class TradingStrategy(Strategy):
         log("Final allocations:")
         for ticker in self.tickers:
             log(f"{ticker}: {final_weights[ticker]:.2%}")
+            
+        # Ensure all values are float type for TargetAllocation
+        target_allocation = {ticker: float(weight) for ticker, weight in final_weights.items()}
         
-        return TargetAllocation(final_weights)
+        return TargetAllocation(target_allocation)
